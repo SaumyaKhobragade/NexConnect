@@ -5,23 +5,33 @@ import fs from "fs";
 
 import User from "../models/users.model.js";
 import Profile from "../models/profile.model.js";
+import ConnectionRequest from "../models/connections.model.js";
 
 const convertUserDataToPDF = async (userData) => {
     const doc = new PDFDocument();
-    
+
     const outputPath = crypto.randomBytes(32).toString("hex") + ".pdf";
     const stream = doc.pipe(require("fs").createWriteStream(outputPath));
 
-    doc.image(`uploads/${userData.userId.profilePicture}`, { width: 100, align: "center" });
+    doc.image(`uploads/${userData.userId.profilePicture}`, {
+        width: 100,
+        align: "center",
+    });
     doc.fontSize(20).text("Name: " + userData.name, { align: "center" });
     doc.fontSize(16).text("Email: " + userData.email, { align: "center" });
-    doc.fontSize(16).text("Username: " + userData.username, { align: "center" });
+    doc.fontSize(16).text("Username: " + userData.username, {
+        align: "center",
+    });
     doc.fontSize(16).text("Bio: " + userData.bio, { align: "center" });
-    doc.fontSize(16).text("Current Position: " + userData.position, { align: "center" });
+    doc.fontSize(16).text("Current Position: " + userData.position, {
+        align: "center",
+    });
 
     doc.fontSize(16).text("Past Work: ");
     userData.pastWork.forEach((work, index) => {
-        doc.fontsize(14).text("Company Name: " + work.company, { align: "left" });
+        doc.fontsize(14).text("Company Name: " + work.company, {
+            align: "left",
+        });
         doc.fontSize(14).text("Position: " + work.position, { align: "left" });
         doc.fontSize(14).text("Years: " + work.years, { align: "left" });
     });
@@ -233,7 +243,145 @@ const downloadResume = async (req, res) => {
 
         return res
             .status(200)
-            .json({ message: "Resume downloaded successfully", resume: outputPath });
+            .json({
+                message: "Resume downloaded successfully",
+                resume: outputPath,
+            });
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+};
+
+const sendConnectionRequest = async (req, res) => {
+    const { token, targetUserId } = req.body;
+
+    try {
+        const user = await User.findOne({ token });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const targetUser = await User.findById(targetUserId);
+        if (!targetUser) {
+            return res.status(404).json({ message: "Target user not found" });
+        }
+
+        if (user.connections.includes(targetUserId)) {
+            return res.status(400).json({ message: "Already connected" });
+        }
+
+        if (targetUser.connectionRequests.includes(user._id)) {
+            return res
+                .status(400)
+                .json({ message: "Connection request already sent" });
+        }
+
+        const request = new ConnectionRequest({
+            userId: user._id,
+            connectionId: targetUserId,
+        });
+        await request.save();
+
+        return res
+            .status(200)
+            .json({ message: "Connection request sent successfully" });
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+};
+
+const getMyConnectionRequests = async (req, res) => {
+    const { token } = req.body;
+
+    try {
+        const user = await User.findOne({ token });
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const connection = await ConnectionRequest.find({
+            userId: user._id,
+        }).populate("userId", "name email username profilePicture");
+
+        return res.status(200).json({ connectionRequests: connection });
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+};
+
+const acceptConnectionRequest = async (req, res) => {
+    const { token, requesterId, action_type } = req.body;
+
+    try {
+        const user = await User.findOne({ token });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const requester = await User.findById(requesterId);
+        if (!requester) {
+            return res.status(404).json({ message: "Requester not found" });
+        }
+
+        if (!user.connectionRequests.includes(requesterId)) {
+            return res
+                .status(400)
+                .json({ message: "No connection request from this user" });
+        }
+
+        const connection = await ConnectionRequest.findOne({
+            userId: user._id,
+            connectionId: requesterId,
+        });
+
+        if (!connection) {
+            return res
+                .status(404)
+                .json({ message: "Connection request not found" });
+        }
+
+        if (action_type === "reject") {
+            connection.status_accepted = false;
+        } else if (action_type === "accept") {
+            connection.status_accepted = true;
+        }
+
+        await connection.save();
+
+        user.connections.push(requesterId);
+        requester.connections.push(user._id);
+
+        user.connectionRequests = user.connectionRequests.filter(
+            (id) => id.toString() !== requesterId,
+        );
+
+        await user.save();
+        await requester.save();
+
+        return res
+            .status(200)
+            .json({ message: "Connection request accepted successfully" });
+    } catch (err) {
+        return res.status(400).json({ message: err.message });
+    }
+};
+
+const whatAreMyConnections = async (req, res) => {
+    const { token } = req.body;
+
+    try {
+        const user = await User.findOne({ token });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        const connections = await ConnectionRequest.find({
+            userId: user._id,
+        }).populate("connectionId", "name email username profilePicture");
+
+        return res.status(200).json({ connections });
     } catch (err) {
         return res.status(400).json({ message: err.message });
     }
@@ -248,4 +396,8 @@ export {
     updateProfileData,
     getAllUserProfiles,
     downloadResume,
+    sendConnectionRequest,
+    getMyConnectionRequests,
+    whatAreMyConnections,
+    acceptConnectionRequest
 };

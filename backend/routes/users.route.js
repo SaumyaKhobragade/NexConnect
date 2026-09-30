@@ -9,6 +9,8 @@ import {
     updateProfileData,
     getAllUserProfiles,
     downloadResume,
+    getConnectionRequests,
+    acceptConnectionRequest,
 } from "../controllers/users.controller.js";
 
 const router = Router();
@@ -35,5 +37,9 @@ router.get("/get_user_and_profile", getUserAndProfile);
 router.post("/update_profile_data", updateProfileData);
 router.get("/get_all_user_profiles", getAllUserProfiles);
 router.get("/download_resume", downloadResume);
+router.post("/send_connection_request", sendConnectionRequest);
+router.get("/get_connection_requests", getConnectionRequests);
+router.post("/accept_connection_request", acceptConnectionRequest);
+router.get("/what_are_my_connections", whatAreMyConnections);
 
 export default router;

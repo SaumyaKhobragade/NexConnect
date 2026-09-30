@@ -1,170 +1,179 @@
 import Post from "../models/posts.model.js";
+import User from "../models/users.model.js";
 import Comment from "../models/comments.model.js";
 
-const createPost = async (req, res) => {
-    const { token } = req.body;
+export const createPost = async (req, res) => {
     try {
-        const user = await User.findOne({ token });
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
+        const { body } = req.body;
+
+        if (!body) {
+            return res
+                .status(400)
+                .json({ message: "Post body is required" });
         }
 
         const post = new Post({
-            user: user._id,
-            body: req.body.body,
-            media: req.file ? req.file.path : "",
-            filetype: req.file ? req.file.mimetype : "",
+            userId: req.user._id,
+            body,
+            media: req.file ? req.file.filename : "",
+            fileType: req.file ? req.file.mimetype : "",
         });
 
         await post.save();
-        res.status(201).json({ message: "Post created successfully" });
-    } catch (error) {
-        console.error("Error creating post:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-};
 
-const getAllPosts = async (req, res) => {
-    try {
-        const posts = await Post.find().populate("user", "username email");
-
-        res.status(200).json(posts);
-    } catch (error) {
-        console.error("Error fetching posts:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-};
-
-const deletePost = async (req, res) => {
-    const { token, postId } = req.body;
-
-    try {
-        const user = await User.findOne({ token }).select("_id");
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        const post = await Post.findById(postId);
-
-        if (!post) {
-            return res.status(404).json({ message: "Post not found" });
-        }
-        if (post.user.toString() !== user._id.toString()) {
-            return res.status(403).json({
-                message: "You are not authorized to delete this post",
-            });
-        }
-
-        await Post.findByIdAndDelete(postId);
-        res.status(200).json({ message: "Post deleted successfully" });
-    } catch (error) {
-        console.error("Error deleting post:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-};
-
-const commentPost = async (req, res) => {
-    const { token, postId, commentBody } = req.body;
-
-    try {
-        const user = await User.findOne({ token }).select("_id");
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        const post = await Post.findById(postId);
-        if (!post) {
-            return res.status(404).json({ message: "Post not found" });
-        }
-
-        const comment = new Comment({
-            user: user._id,
-            post: postId,
-            comment: commentBody,
-        });
-
-        await comment.save();
-        res.status(201).json({ message: "Comment added successfully" });
-    } catch (error) {
-        console.error("Error commenting on post:", error);
-        res.status(500).json({ message: "Internal server error" });
-    }
-};
-
-const get_comments_by_post = async (req, res) => {
-    const { postId } = req.params;
-
-    try {
-        const comments = await Comment.find({ post: postId }).populate(
-            "user",
-            "username email",
+        const populated = await post.populate(
+            "userId",
+            "name username profilePicture",
         );
 
-        res.status(200).json(comments);
-    } catch (error) {
-        console.error("Error fetching comments:", error);
-        res.status(500).json({ message: "Internal server error" });
+        return res
+            .status(201)
+            .json({ message: "Post created", post: populated });
+    } catch (err) {
+        console.error("createPost error:", err);
+        return res.status(500).json({ message: "Failed to create post" });
     }
 };
 
-const delete_comment_of_user = async (req, res) => {
-    const { token, commentId } = req.body;
-
+export const getAllPosts = async (req, res) => {
     try {
-        const user = await User.findOne({ token }).select("_id");
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
+        const page = parseInt(req.query.page) || 1;
+        const limit = Math.min(parseInt(req.query.limit) || 20, 100);
+        const skip = (page - 1) * limit;
 
-        const comment = await Comment.findById(commentId);
-        if (!comment) {
-            return res.status(404).json({ message: "Comment not found" });
-        }
+        const [posts, total] = await Promise.all([
+            Post.find({ active: true })
+                .populate("userId", "name username email profilePicture")
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            Post.countDocuments({ active: true }),
+        ]);
 
-        if (comment.user.toString() !== user._id.toString()) {
-            return res.status(403).json({
-                message: "You are not authorized to delete this comment",
-            });
-        }
-
-        await Comment.findByIdAndDelete(commentId);
-        res.status(200).json({ message: "Comment deleted successfully" });
-    } catch (error) {
-        console.error("Error deleting comment:", error);
-        res.status(500).json({ message: "Internal server error" });
+        return res.status(200).json({
+            posts,
+            pagination: {
+                page,
+                limit,
+                total,
+                pages: Math.ceil(total / limit),
+            },
+        });
+    } catch (err) {
+        console.error("getAllPosts error:", err);
+        return res.status(500).json({ message: "Failed to fetch posts" });
     }
 };
 
-const implement_likes = async (req, res) => {
-    const { token, postId } = req.body;
-
+export const getPost = async (req, res) => {
     try {
-        const user = await User.findOne({ token }).select("_id");
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
+        const post = await Post.findOne({
+            _id: req.params.postId,
+            active: true,
+        }).populate("userId", "name username email profilePicture");
 
-        const post = await Post.findById(postId);
         if (!post) {
             return res.status(404).json({ message: "Post not found" });
         }
 
-        post.likes += 1;
-
-        await post.save();
-        res.status(200).json({ message: "Post liked successfully" });
-    } catch (error) {
-        console.error("Error liking/unliking post:", error);
-        res.status(500).json({ message: "Internal server error" });
+        return res.status(200).json({ post });
+    } catch (err) {
+        console.error("getPost error:", err);
+        return res.status(500).json({ message: "Failed to fetch post" });
     }
 };
 
-export {
-    createPost,
-    getAllPosts,
-    deletePost,
-    commentPost,
-    get_comments_by_post,
-    delete_comment_of_user,
-    implement_likes,
+export const deletePost = async (req, res) => {
+    try {
+        const post = await Post.findOne({
+            _id: req.params.postId,
+            active: true,
+        });
+
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        if (post.userId.toString() !== req.user._id.toString()) {
+            return res
+                .status(403)
+                .json({ message: "Not authorized to delete this post" });
+        }
+
+        // Soft delete post, hard delete its comments
+        post.active = false;
+        await post.save();
+        await Comment.deleteMany({ postId: post._id });
+
+        return res.status(200).json({ message: "Post deleted" });
+    } catch (err) {
+        console.error("deletePost error:", err);
+        return res.status(500).json({ message: "Failed to delete post" });
+    }
+};
+
+export const likePost = async (req, res) => {
+    try {
+        const post = await Post.findOne({
+            _id: req.params.postId,
+            active: true,
+        });
+
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        const userId = req.user._id;
+        const alreadyLiked = post.likes.some(
+            (id) => id.toString() === userId.toString(),
+        );
+
+        if (alreadyLiked) {
+            return res
+                .status(400)
+                .json({ message: "Already liked this post" });
+        }
+
+        post.likes.push(userId);
+        await post.save();
+
+        return res
+            .status(200)
+            .json({ message: "Post liked", likesCount: post.likes.length });
+    } catch (err) {
+        console.error("likePost error:", err);
+        return res.status(500).json({ message: "Failed to like post" });
+    }
+};
+
+export const unlikePost = async (req, res) => {
+    try {
+        const post = await Post.findOne({
+            _id: req.params.postId,
+            active: true,
+        });
+
+        if (!post) {
+            return res.status(404).json({ message: "Post not found" });
+        }
+
+        const userId = req.user._id;
+        const likeIndex = post.likes.findIndex(
+            (id) => id.toString() === userId.toString(),
+        );
+
+        if (likeIndex === -1) {
+            return res.status(400).json({ message: "Not liked yet" });
+        }
+
+        post.likes.splice(likeIndex, 1);
+        await post.save();
+
+        return res
+            .status(200)
+            .json({ message: "Like removed", likesCount: post.likes.length });
+    } catch (err) {
+        console.error("unlikePost error:", err);
+        return res.status(500).json({ message: "Failed to unlike post" });
+    }
 };

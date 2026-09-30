@@ -1,22 +1,34 @@
 import mongoose from "mongoose";
 
-const connectionRequest = new mongoose.Schema({
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
+const connectionRequestSchema = new mongoose.Schema(
+    {
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+        connectionId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+        },
+        status_accepted: {
+            type: Boolean,
+            default: null, // null = pending, true = accepted, false = rejected
+        },
     },
-    connectionId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
-    },
-    status_accepted: {
-        type: Boolean,
-        default: null,
-    }
-});
+    { timestamps: true },
+);
 
-const ConnectionRequest = mongoose.model("ConnectionRequest", connectionRequest);
+// Prevent duplicate requests in the same direction
+connectionRequestSchema.index(
+    { userId: 1, connectionId: 1 },
+    { unique: true },
+);
+
+const ConnectionRequest = mongoose.model(
+    "ConnectionRequest",
+    connectionRequestSchema,
+);
 
 export default ConnectionRequest;

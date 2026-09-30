@@ -5,20 +5,21 @@ const userSchema = new mongoose.Schema(
         name: {
             type: String,
             required: true,
+            trim: true,
         },
         username: {
             type: String,
             required: true,
             unique: true,
+            trim: true,
+            lowercase: true,
         },
         email: {
             type: String,
             required: true,
             unique: true,
-        },
-        active: {
-            type: Boolean,
-            default: true,
+            trim: true,
+            lowercase: true,
         },
         password: {
             type: String,
@@ -28,16 +29,20 @@ const userSchema = new mongoose.Schema(
             type: String,
             default: "default.jpg",
         },
-        createdAt: {
-            type: Date,
-            default: Date.now,
+        active: {
+            type: Boolean,
+            default: true,
         },
         token: {
             type: String,
             default: "",
         },
-    }
+    },
+    { timestamps: true },
 );
+
+// Fast lookup for auth middleware (runs on every authenticated request)
+userSchema.index({ token: 1 });
 
 const User = mongoose.model("User", userSchema);
 

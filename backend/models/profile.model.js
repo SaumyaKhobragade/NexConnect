@@ -36,29 +36,33 @@ const workSchema = new mongoose.Schema({
     },
 });
 
-const profileSchema = new mongoose.Schema({
-    userId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-        required: true,
+const profileSchema = new mongoose.Schema(
+    {
+        userId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+            required: true,
+            unique: true,
+        },
+        bio: {
+            type: String,
+            default: "",
+        },
+        currentPost: {
+            type: String,
+            default: "",
+        },
+        pastWork: {
+            type: [workSchema],
+            default: [],
+        },
+        education: {
+            type: [educationSchema],
+            default: [],
+        },
     },
-    bio: {
-        type: String,
-        default: "",
-    },
-    currentPost: {
-        type: String,
-        default: "",
-    },
-    pastWork: {
-        type: [workSchema],
-        default: [],
-    },
-    education: {
-        type: [educationSchema],
-        default: [],
-    },
-});
+    { timestamps: true },
+);
 
 const Profile = mongoose.model("Profile", profileSchema);
 

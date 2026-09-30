@@ -11,32 +11,30 @@ const postSchema = new mongoose.Schema(
             type: String,
             required: true,
         },
-        likes: {
-            type: Number,
-            default: 0,
-        },
-        createdAt: {
-            type: Date,
-            default: Date.now,
-        },
-        updatedAt: {
-            type: Date,
-            default: Date.now,
-        },
+        likes: [
+            {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "User",
+            },
+        ],
         media: {
             type: String,
-            default: '',
+            default: "",
+        },
+        fileType: {
+            type: String,
+            default: "",
         },
         active: {
             type: Boolean,
             default: true,
         },
-        fileType: {
-            type: String,
-            default: '',
-        },
     },
+    { timestamps: true },
 );
+
+// Feed query: active posts sorted by newest first
+postSchema.index({ active: 1, createdAt: -1 });
 
 const Post = mongoose.model("Post", postSchema);
 

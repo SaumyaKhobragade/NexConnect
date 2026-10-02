@@ -18,7 +18,7 @@ export default function Home() {
                             A True social media platform, with stories no blufs!
                         </p>
                         <button 
-                            onClick={() => router.push("/signup")} 
+                            onClick={() => router.push("/login")} 
                             className="mt-4 bg-violet-600 text-white px-8 py-3.5 rounded-full text-lg font-medium hover:bg-violet-700 hover:shadow-lg hover:shadow-violet-500/30 transition-all active:scale-95 flex items-center gap-2"
                         >
                             Join Now

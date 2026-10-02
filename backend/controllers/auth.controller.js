@@ -42,14 +42,24 @@ export const register = async (req, res) => {
             password: hashedPassword,
             username,
         });
+        const token = crypto.randomBytes(32).toString("hex");
+        newUser.token = token;
         await newUser.save();
 
         const profile = new Profile({ userId: newUser._id });
         await profile.save();
 
-        return res
-            .status(201)
-            .json({ message: "User registered successfully" });
+        return res.status(201).json({
+            message: "User registered successfully",
+            token,
+            user: {
+                _id: newUser._id,
+                name: newUser.name,
+                username: newUser.username,
+                email: newUser.email,
+                profilePicture: newUser.profilePicture,
+            },
+        });
     } catch (err) {
         console.error("Register error:", err);
         return res.status(500).json({ message: "Registration failed" });

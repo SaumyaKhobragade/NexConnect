@@ -18,7 +18,7 @@ export default function Navbar() {
                         Log in
                     </Link>
                     <Link 
-                        href="/signup" 
+                        href="/login" 
                         className="text-sm font-medium bg-zinc-900 text-white px-5 py-2.5 rounded-full hover:bg-zinc-800 transition-all shadow-sm active:scale-95"
                     >
                         Be a part

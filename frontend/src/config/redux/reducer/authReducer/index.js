@@ -1,3 +1,6 @@
+import { createSlice } from "@reduxjs/toolkit";
+import { loginUser, registerUser } from "../../action/authAction";
+
 const initialState = {
     user: [],
     isError: false,

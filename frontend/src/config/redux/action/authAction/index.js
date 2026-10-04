@@ -38,3 +38,24 @@ export const registerUser = createAsyncThunk(
         }
     }
 );
+
+export const getAboutUser = createAsyncThunk(
+    "user/getAboutUser",
+    async (user, thunkAPI) => {
+        try {
+            const token = localStorage.getItem("token");
+            if (!token) {
+                return thunkAPI.rejectWithValue("No token found");
+            }
+
+            const response = await clientServer.get("/api/users/me", {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            return thunkAPI.fulfillWithValue(response.data);
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+        }
+    }
+);

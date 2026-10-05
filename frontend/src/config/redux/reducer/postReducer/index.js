@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { getAllPosts, createPost, deletePost, editPost } from '../../action/postAction';
+import { getAllPosts, createPost, deletePost, editPost, likePost, unlikePost, addComment, getComments } from '../../action/postAction';
 
 const initialState = {
     posts: [],
@@ -8,6 +8,8 @@ const initialState = {
     isLoading: false,
     message: "",
     postId: "",
+    comments: [],
+    commentsLoading: false,
 };
 
 const postSlice = createSlice({
@@ -49,8 +51,46 @@ const postSlice = createSlice({
                 const updatedPost = action.payload?.post || action.payload;
                 const index = state.posts.findIndex(post => post._id === updatedPost._id);
                 if (index !== -1) {
-                    state.posts[index] = updatedPost;
+                    state.posts[index] = { ...state.posts[index], ...updatedPost };
                 }
+            })
+            .addCase(likePost.fulfilled, (state, action) => {
+                const { postId, userId } = action.payload;
+                const post = state.posts.find(p => p._id === postId);
+                if (post) {
+                    if (!post.likes) post.likes = [];
+                    if (!post.likes.includes(userId)) {
+                        post.likes.push(userId);
+                    }
+                }
+            })
+            .addCase(unlikePost.fulfilled, (state, action) => {
+                const { postId, userId } = action.payload;
+                const post = state.posts.find(p => p._id === postId);
+                if (post && post.likes) {
+                    post.likes = post.likes.filter(id => id !== userId);
+                }
+            })
+            .addCase(addComment.fulfilled, (state, action) => {
+                const { postId, comment } = action.payload;
+                const post = state.posts.find(p => p._id === postId);
+                if (post) {
+                    post.commentsCount = (post.commentsCount || 0) + 1;
+                }
+                // Prepend the new comment to the current comments array
+                state.comments = [comment, ...state.comments];
+            })
+            .addCase(getComments.pending, (state) => {
+                state.commentsLoading = true;
+                state.comments = [];
+            })
+            .addCase(getComments.fulfilled, (state, action) => {
+                state.commentsLoading = false;
+                state.comments = action.payload || [];
+            })
+            .addCase(getComments.rejected, (state) => {
+                state.commentsLoading = false;
+                state.comments = [];
             });
     }
 });

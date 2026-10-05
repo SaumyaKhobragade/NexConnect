@@ -59,3 +59,32 @@ export const getAboutUser = createAsyncThunk(
         }
     }
 );
+
+export const getAllProfiles = createAsyncThunk(
+    "user/getAllProfiles",
+    async (_, thunkAPI) => {
+        try {
+            const response = await clientServer.get("/api/users");
+            return thunkAPI.fulfillWithValue(response.data);
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+        }
+    }
+);
+
+export const sendConnectionRequest = createAsyncThunk(
+    "user/sendConnectionRequest",
+    async (userId, thunkAPI) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await clientServer.post("/api/connections/request", { receiverId: userId }, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                },
+            });
+            return thunkAPI.fulfillWithValue(response.data);
+        } catch (error) {
+            return thunkAPI.rejectWithValue(error.response?.data?.message || error.message);
+        }
+    }
+);

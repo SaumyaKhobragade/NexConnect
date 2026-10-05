@@ -50,8 +50,15 @@ export const getAllPosts = async (req, res) => {
             Post.countDocuments({ active: true }),
         ]);
 
+        const postsWithCommentCount = await Promise.all(
+            posts.map(async (post) => {
+                const commentsCount = await Comment.countDocuments({ postId: post._id });
+                return { ...post.toObject(), commentsCount };
+            })
+        );
+
         return res.status(200).json({
-            posts,
+            posts: postsWithCommentCount,
             pagination: {
                 page,
                 limit,

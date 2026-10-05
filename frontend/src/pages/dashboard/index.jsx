@@ -2,25 +2,40 @@ import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useRouter } from "next/router";
 import UserLayout from "../../layout/UserLayout";
-import { getAllPosts, createPost, deletePost } from "../../config/redux/action/postAction";
+import { getAllPosts, createPost, deletePost, likePost, unlikePost, getComments, addComment } from "../../config/redux/action/postAction";
+import { getAllProfiles } from "../../config/redux/action/authAction";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function Dashboard() {
     const dispatch = useDispatch();
     const router = useRouter();
-    const { user, loggedIn } = useSelector((state) => state.auth);
-    const { posts, isLoading } = useSelector((state) => state.post || { posts: [], isLoading: false });
+    const { user, loggedIn, allProfiles } = useSelector((state) => state.auth);
+    const { posts, isLoading, comments, commentsLoading } = useSelector((state) => state.post || { posts: [], isLoading: false, comments: [], commentsLoading: false });
     
     const [postContent, setPostContent] = useState("");
+    const [postMedia, setPostMedia] = useState(null);
+    const [isCreateExpanded, setIsCreateExpanded] = useState(false);
     const [hoveredPostId, setHoveredPostId] = useState(null);
+    const [activeCommentsPostId, setActiveCommentsPostId] = useState(null);
+    const [newCommentText, setNewCommentText] = useState("");
+    const [isClient, setIsClient] = useState(false);
 
     useEffect(() => {
+        setIsClient(true);
         if (!localStorage.getItem('token')) {
             router.push('/login');
         } else {
             dispatch(getAllPosts());
         }
     }, [dispatch, router]);
+
+    if (!isClient) return null; // Avoid SSR hydration mismatch
+    
+    // Completely block rendering if not logged in
+    if (typeof window !== 'undefined' && !localStorage.getItem('token')) {
+        return null;
+    }
 
     const handleCreatePost = (e) => {
         e.preventDefault();
@@ -147,7 +162,7 @@ export default function Dashboard() {
 
                                             {/* Optional Image */}
                                             {post.media && (
-                                                <div className="relative w-full h-[300px] md:h-[400px] rounded-xl overflow-hidden mt-2">
+                                                <div className="relative w-full h-[300px] md:h-[400px] rounded-xl overflow-hidden mt-2 mb-4">
                                                     <Image 
                                                         src={post.media.includes('http') ? post.media : `http://localhost:8000/uploads/${post.media}`} 
                                                         alt="Post attachment" 
@@ -156,6 +171,59 @@ export default function Dashboard() {
                                                     />
                                                 </div>
                                             )}
+
+                                            {/* Action Buttons */}
+                                            <div className="flex items-center gap-6 pt-3 border-t border-zinc-100 mt-2">
+                                                <button 
+                                                    onClick={() => {
+                                                        if (!user) return alert('Please login to like posts');
+                                                        const hasLiked = post.likes?.includes(user._id);
+                                                        if (hasLiked) {
+                                                            dispatch(unlikePost(post._id));
+                                                        } else {
+                                                            dispatch(likePost(post._id));
+                                                        }
+                                                    }}
+                                                    className={`flex items-center gap-2 text-sm font-medium transition-colors ${post.likes?.includes(user?._id) ? 'text-rose-500' : 'text-zinc-500 hover:text-zinc-800'}`}
+                                                >
+                                                    <svg className="w-5 h-5" fill={post.likes?.includes(user?._id) ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                                                    {post.likes?.length || 0} Likes
+                                                </button>
+                                                
+                                                <button 
+                                                    onClick={() => {
+                                                        if (activeCommentsPostId === post._id) {
+                                                            setActiveCommentsPostId(null);
+                                                        } else {
+                                                            setActiveCommentsPostId(post._id);
+                                                            dispatch(getComments(post._id));
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                                    {post.commentsCount || 0} Comments
+                                                </button>
+
+                                                <button 
+                                                    onClick={() => {
+                                                        if (navigator.share) {
+                                                            navigator.share({
+                                                                title: 'Pro Connect Post',
+                                                                text: post.body,
+                                                                url: window.location.href,
+                                                            }).catch(err => console.error(err));
+                                                        } else {
+                                                            alert('Share copied to clipboard!');
+                                                            navigator.clipboard.writeText(`${window.location.origin}/dashboard`);
+                                                        }
+                                                    }}
+                                                    className="flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-800 transition-colors ml-auto"
+                                                >
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6.632l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
+                                                    Share
+                                                </button>
+                                            </div>
                                         </div>
                                     )
                                 })
@@ -181,6 +249,85 @@ export default function Dashboard() {
                     </div>
                 </div>
             </div>
+
+            {/* Comments Modal Overlay */}
+            {activeCommentsPostId && (
+                <div 
+                    className="fixed inset-0 bg-black/40 z-50 flex justify-center items-end md:items-center backdrop-blur-sm"
+                    onClick={(e) => {
+                        // Close if clicked on overlay directly
+                        if (e.target === e.currentTarget) {
+                            setActiveCommentsPostId(null);
+                        }
+                    }}
+                >
+                    <div className="bg-white w-full md:w-[600px] md:rounded-2xl rounded-t-3xl max-h-[80vh] flex flex-col shadow-2xl animate-in slide-in-from-bottom-10 md:zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-5 border-b border-zinc-100">
+                            <h3 className="font-bold text-lg text-zinc-900">Comments</h3>
+                            <button 
+                                onClick={() => setActiveCommentsPostId(null)}
+                                className="text-zinc-400 hover:text-zinc-800 transition-colors p-2 rounded-full hover:bg-zinc-100"
+                            >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>
+                        
+                        <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-zinc-50/50">
+                            {commentsLoading ? (
+                                <div className="text-center py-6 text-zinc-500 text-sm">Loading comments...</div>
+                            ) : comments?.length > 0 ? (
+                                comments.map(comment => (
+                                    <div key={comment._id} className="flex gap-3">
+                                        <div className="w-8 h-8 rounded-full bg-zinc-200 overflow-hidden shrink-0 mt-1">
+                                            {comment.userId?.profilePicture ? (
+                                                <Image src={`http://localhost:8000/uploads/${comment.userId.profilePicture}`} width={32} height={32} alt="Avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex justify-center items-center font-bold text-xs text-zinc-500">
+                                                    {comment.userId?.name?.[0] || "?"}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="bg-zinc-100/80 rounded-2xl p-3 px-4 flex-1">
+                                            <div className="font-semibold text-sm text-zinc-900">{comment.userId?.name}</div>
+                                            <div className="text-sm text-zinc-800 mt-0.5 whitespace-pre-wrap leading-relaxed">{comment.body}</div>
+                                        </div>
+                                    </div>
+                                ))
+                            ) : (
+                                <div className="text-center py-6 text-zinc-500 text-sm">No comments yet. Start the conversation!</div>
+                            )}
+                        </div>
+
+                        <div className="p-4 border-t border-zinc-100 bg-white md:rounded-b-2xl">
+                            <form 
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    if (!newCommentText.trim()) return;
+                                    dispatch(addComment({ postId: activeCommentsPostId, body: newCommentText }));
+                                    setNewCommentText("");
+                                }}
+                                className="flex gap-3 items-center bg-zinc-50 p-2 pl-4 rounded-full border border-zinc-200"
+                            >
+                                <input 
+                                    type="text" 
+                                    placeholder="Write a comment..." 
+                                    value={newCommentText}
+                                    onChange={(e) => setNewCommentText(e.target.value)}
+                                    className="flex-1 bg-transparent text-sm focus:outline-none placeholder-zinc-400"
+                                    autoFocus
+                                />
+                                <button 
+                                    type="submit" 
+                                    disabled={!newCommentText.trim()}
+                                    className="w-10 h-10 rounded-full bg-slate-900 text-white flex items-center justify-center hover:bg-slate-800 transition-all disabled:opacity-50 shrink-0"
+                                >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            )}
         </UserLayout>
     );
 }

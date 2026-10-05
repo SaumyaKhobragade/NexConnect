@@ -27,6 +27,7 @@ export default function Dashboard() {
             router.push('/login');
         } else {
             dispatch(getAllPosts());
+            dispatch(getAllProfiles());
         }
     }, [dispatch, router]);
 
@@ -39,10 +40,18 @@ export default function Dashboard() {
 
     const handleCreatePost = (e) => {
         e.preventDefault();
-        if (!postContent.trim()) return;
+        if (!postContent.trim() && !postMedia) return;
         
-        dispatch(createPost({ body: postContent }));
+        const formData = new FormData();
+        formData.append("body", postContent);
+        if (postMedia) {
+            formData.append("media", postMedia);
+        }
+
+        dispatch(createPost(formData));
         setPostContent("");
+        setPostMedia(null);
+        setIsCreateExpanded(false);
     };
 
     const handleDeletePost = (postId) => {
@@ -63,10 +72,10 @@ export default function Dashboard() {
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
                                 Scroll
                             </button>
-                            <button className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-100 rounded-xl font-medium text-zinc-600 transition-colors">
+                            <Link href="/discover" className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-100 rounded-xl font-medium text-zinc-600 transition-colors">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
                                 Discover
-                            </button>
+                            </Link>
                             <button className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-100 rounded-xl font-medium text-zinc-600 transition-colors">
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" /></svg>
                                 My Connections
@@ -77,32 +86,66 @@ export default function Dashboard() {
                     {/* Middle Feed */}
                     <div className="flex flex-col gap-6">
                         {/* Create Post Input */}
-                        <div className="bg-rose-50/50 p-4 rounded-3xl border border-rose-100/50 flex gap-4 items-center shadow-sm">
-                            <div className="w-12 h-12 rounded-full bg-zinc-200 overflow-hidden shrink-0">
-                                {user?.profilePicture ? (
-                                    <Image src={user.profilePicture.includes('http') ? user.profilePicture : `http://localhost:8000/uploads/${user.profilePicture}`} width={48} height={48} alt="Avatar" className="w-full h-full object-cover" />
-                                ) : (
-                                    <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold">
-                                        {user?.name?.[0] || "?"}
-                                    </div>
-                                )}
+                        <div className={`bg-white p-4 rounded-3xl border border-zinc-200 shadow-sm transition-all duration-300 ${isCreateExpanded ? 'ring-2 ring-indigo-500/20' : ''}`}>
+                            <div className="flex gap-4">
+                                <div className="w-12 h-12 rounded-full bg-zinc-200 overflow-hidden shrink-0 mt-1">
+                                    {user?.profilePicture ? (
+                                        <Image src={user.profilePicture.includes('http') ? user.profilePicture : `http://localhost:8000/uploads/${user.profilePicture}`} width={48} height={48} alt="Avatar" className="w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold">
+                                            {user?.name?.[0] || "?"}
+                                        </div>
+                                    )}
+                                </div>
+                                <form onSubmit={handleCreatePost} className="flex-1 flex flex-col gap-3">
+                                    <textarea 
+                                        placeholder="What's on your mind?" 
+                                        value={postContent}
+                                        onChange={(e) => setPostContent(e.target.value)}
+                                        onFocus={() => setIsCreateExpanded(true)}
+                                        className={`w-full bg-transparent text-zinc-800 placeholder-zinc-400 focus:outline-none resize-none transition-all duration-300 ${isCreateExpanded ? 'min-h-[100px]' : 'min-h-[48px] pt-3'}`}
+                                    />
+                                    
+                                    {isCreateExpanded && (
+                                        <div className="flex items-center justify-between pt-3 border-t border-zinc-100 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            <div className="flex items-center gap-2">
+                                                <label className="cursor-pointer p-2 text-zinc-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors relative group">
+                                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                                    <input 
+                                                        type="file" 
+                                                        accept="image/*,video/*" 
+                                                        className="hidden" 
+                                                        onChange={(e) => setPostMedia(e.target.files[0])}
+                                                    />
+                                                </label>
+                                                {postMedia && (
+                                                    <span className="text-xs text-indigo-600 font-medium truncate max-w-[150px]">{postMedia.name}</span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <button 
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setIsCreateExpanded(false);
+                                                        setPostContent("");
+                                                        setPostMedia(null);
+                                                    }}
+                                                    className="px-4 py-2 text-sm font-medium text-zinc-500 hover:text-zinc-700 transition-colors"
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button 
+                                                    type="submit" 
+                                                    disabled={!postContent.trim() && !postMedia}
+                                                    className="px-5 py-2 rounded-full bg-[#0a1e3f] text-white text-sm font-semibold hover:bg-[#071328] transition-all disabled:opacity-50"
+                                                >
+                                                    Post
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
+                                </form>
                             </div>
-                            <form onSubmit={handleCreatePost} className="flex-1 flex gap-3 items-center">
-                                <input 
-                                    type="text" 
-                                    placeholder="What's in your mind?" 
-                                    value={postContent}
-                                    onChange={(e) => setPostContent(e.target.value)}
-                                    className="flex-1 bg-white border border-zinc-200 rounded-full px-5 py-3 text-sm focus:outline-none focus:border-zinc-300 focus:ring-1 focus:ring-zinc-200 transition-all placeholder-zinc-400"
-                                />
-                                <button 
-                                    type="submit" 
-                                    disabled={!postContent.trim()}
-                                    className="w-12 h-12 rounded-full bg-[#0a1e3f] text-white flex items-center justify-center hover:bg-[#071328] transition-all disabled:opacity-50 shrink-0 shadow-md"
-                                >
-                                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-                                </button>
-                            </form>
                         </div>
 
                         {/* Posts List */}
@@ -122,17 +165,19 @@ export default function Dashboard() {
                                         >
                                             {/* Header */}
                                             <div className="flex items-start gap-4 mb-4">
-                                                <div className="w-12 h-12 rounded-full bg-zinc-200 overflow-hidden shrink-0 flex items-center justify-center text-zinc-500 font-bold">
-                                                    {post.userId?.profilePicture ? (
-                                                        <Image src={post.userId.profilePicture.includes('http') ? post.userId.profilePicture : `http://localhost:8000/uploads/${post.userId.profilePicture}`} width={48} height={48} alt="Avatar" className="w-full h-full object-cover" />
-                                                    ) : (
-                                                        post.userId?.name?.[0] || "?"
-                                                    )}
-                                                </div>
-                                                <div className="flex flex-col">
-                                                    <span className="font-semibold text-zinc-900">{post.userId?.name || "Unknown"}</span>
-                                                    <span className="text-xs text-zinc-500">@{post.userId?.username || "unknown"}</span>
-                                                </div>
+                                                <Link href={`/user/${post.userId?._id}`} className="flex items-center gap-4 group/avatar">
+                                                    <div className="w-12 h-12 rounded-full bg-zinc-200 overflow-hidden shrink-0 flex items-center justify-center text-zinc-500 font-bold group-hover/avatar:ring-2 ring-indigo-500/50 transition-all">
+                                                        {post.userId?.profilePicture ? (
+                                                            <Image src={post.userId.profilePicture.includes('http') ? post.userId.profilePicture : `http://localhost:8000/uploads/${post.userId.profilePicture}`} width={48} height={48} alt="Avatar" className="w-full h-full object-cover" />
+                                                        ) : (
+                                                            post.userId?.name?.[0] || "?"
+                                                        )}
+                                                    </div>
+                                                    <div className="flex flex-col">
+                                                        <span className="font-semibold text-zinc-900 group-hover/avatar:text-indigo-600 transition-colors">{post.userId?.name || "Unknown"}</span>
+                                                        <span className="text-xs text-zinc-500">@{post.userId?.username || "unknown"}</span>
+                                                    </div>
+                                                </Link>
                                                 
                                                 {/* Edit / Delete overlay (only if owner and hovered) */}
                                                 {isOwner && hoveredPostId === post._id && (
@@ -237,14 +282,27 @@ export default function Dashboard() {
                     <div className="hidden md:flex flex-col gap-4">
                         <h3 className="font-semibold text-zinc-900 mb-2">Top Profiles</h3>
                         <div className="flex flex-col gap-3">
-                            <div className="flex items-center gap-3 cursor-pointer group">
-                                <div className="w-10 h-10 rounded-full bg-zinc-200"></div>
-                                <span className="font-medium text-sm text-zinc-700 group-hover:text-zinc-900">Rahul</span>
-                            </div>
-                            <div className="flex items-center gap-3 cursor-pointer group">
-                                <div className="w-10 h-10 rounded-full bg-zinc-200"></div>
-                                <span className="font-medium text-sm text-zinc-700 group-hover:text-zinc-900">Neha</span>
-                            </div>
+                            {allProfiles && allProfiles.length > 0 ? (
+                                allProfiles.slice(0, 5).map(profile => (
+                                    <Link href={`/user/${profile.userId?._id}`} key={profile._id} className="flex items-center gap-3 cursor-pointer group">
+                                        <div className="w-10 h-10 rounded-full bg-zinc-200 overflow-hidden shrink-0">
+                                            {profile.userId?.profilePicture ? (
+                                                <Image src={profile.userId.profilePicture.includes('http') ? profile.userId.profilePicture : `http://localhost:8000/uploads/${profile.userId.profilePicture}`} width={40} height={40} alt="Avatar" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full bg-indigo-100 flex items-center justify-center text-indigo-500 font-bold text-sm">
+                                                    {profile.userId?.name?.[0] || "?"}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex flex-col overflow-hidden">
+                                            <span className="font-medium text-sm text-zinc-700 group-hover:text-zinc-900 transition-colors truncate">{profile.userId?.name || "Unknown"}</span>
+                                            {profile.currentPost && <span className="text-xs text-zinc-400 truncate max-w-[120px]">{profile.currentPost}</span>}
+                                        </div>
+                                    </Link>
+                                ))
+                            ) : (
+                                <div className="text-sm text-zinc-500">No profiles found</div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -278,7 +336,7 @@ export default function Dashboard() {
                             ) : comments?.length > 0 ? (
                                 comments.map(comment => (
                                     <div key={comment._id} className="flex gap-3">
-                                        <div className="w-8 h-8 rounded-full bg-zinc-200 overflow-hidden shrink-0 mt-1">
+                                        <Link href={`/user/${comment.userId?._id}`} className="w-8 h-8 rounded-full bg-zinc-200 overflow-hidden shrink-0 mt-1 hover:ring-2 ring-indigo-500/50 transition-all">
                                             {comment.userId?.profilePicture ? (
                                                 <Image src={`http://localhost:8000/uploads/${comment.userId.profilePicture}`} width={32} height={32} alt="Avatar" className="w-full h-full object-cover" />
                                             ) : (
@@ -286,9 +344,9 @@ export default function Dashboard() {
                                                     {comment.userId?.name?.[0] || "?"}
                                                 </div>
                                             )}
-                                        </div>
+                                        </Link>
                                         <div className="bg-zinc-100/80 rounded-2xl p-3 px-4 flex-1">
-                                            <div className="font-semibold text-sm text-zinc-900">{comment.userId?.name}</div>
+                                            <Link href={`/user/${comment.userId?._id}`} className="font-semibold text-sm text-zinc-900 hover:text-indigo-600 transition-colors inline-block">{comment.userId?.name}</Link>
                                             <div className="text-sm text-zinc-800 mt-0.5 whitespace-pre-wrap leading-relaxed">{comment.body}</div>
                                         </div>
                                     </div>

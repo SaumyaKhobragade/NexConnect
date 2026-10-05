@@ -41,13 +41,18 @@ export const getAllPosts = async (req, res) => {
         const limit = Math.min(parseInt(req.query.limit) || 20, 100);
         const skip = (page - 1) * limit;
 
+        const query = { active: true };
+        if (req.query.userId) {
+            query.userId = req.query.userId;
+        }
+
         const [posts, total] = await Promise.all([
-            Post.find({ active: true })
+            Post.find(query)
                 .populate("userId", "name username email profilePicture")
                 .sort({ createdAt: -1 })
                 .skip(skip)
                 .limit(limit),
-            Post.countDocuments({ active: true }),
+            Post.countDocuments(query),
         ]);
 
         const postsWithCommentCount = await Promise.all(
